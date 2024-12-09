@@ -132,14 +132,6 @@ public class CSDBondTest {
                 }
             }
 
-            GroupTupleJSON issuerGroup = new GroupTupleJSON(
-                    JsonHex.randomBytes32(), new String[]{bondIssuer});
-
-            // Create the privacy groups
-            var issuerInstance = PenteHelper.newPrivacyGroup(
-                    "pente", alice, testbed, issuerGroup, true);
-            assertFalse(issuerInstance.address().isBlank());
-
             // Create Noto cash token
             var notoCash = NotoHelper.deploy("noto", cashIssuer, testbed,
                     new NotoHelper.ConstructorParams(
@@ -147,6 +139,17 @@ public class CSDBondTest {
                             null,
                             true));
             assertFalse(notoCash.address().isBlank());
+
+            // Issue cash to investors
+            notoCash.mint(cashIssuer, alice, 100000);
+
+            GroupTupleJSON issuerGroup = new GroupTupleJSON(
+                    JsonHex.randomBytes32(), new String[]{bondIssuer});
+
+            // Create the privacy groups
+            var issuerInstance = PenteHelper.newPrivacyGroup(
+                    "pente", bondIssuer, testbed, issuerGroup, true);
+            assertFalse(issuerInstance.address().isBlank());
 
             // Deploy private investor list to the issuer privacy group
             var investorList = InvestorListHelper.deploy(issuerInstance, bondIssuer, new HashMap<>() {{
@@ -175,9 +178,6 @@ public class CSDBondTest {
                                     issuerGroup),
                             false));
             assertFalse(notoBond.address().isBlank());
-
-            // Issue cash to investors
-            notoCash.mint(cashIssuer, alice, 100000);
 
             // Issue bond to issuer
             bondTracker.prepareIssuance(bondIssuer);
