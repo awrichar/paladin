@@ -109,7 +109,6 @@ contract CSDBondTracker is INotoHooks, ERC20, Ownable {
         uint256 amount,
         PreparedTransaction calldata prepared
     ) external onlyOwner {
-        require(to == owner(), "Bond must be issued to issuer");
         require(status == Status.READY, "Bond is not ready to be issued");
         require(
             sender != maker[LifecycleStep.BOND_ISSUANCE],

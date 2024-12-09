@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -108,14 +109,17 @@ public class CSDBondTest {
         )) {
 
             String cashIssuer = "cashIssuer";
-            String bondIssuer = "bondIssuer";
-            String bondChecker = "bondChecker";
-            String alice = "alice";
+            String csdRequester = "csdRequester";
+            String csdChecker = "csdChecker";
+            String agent = "agent";
+            String dealer = "dealer";
 
-            String issuerAddress = testbed.getRpcClient().request("testbed_resolveVerifier",
-                    bondIssuer, Algorithms.ECDSA_SECP256K1, Verifiers.ETH_ADDRESS);
-            String aliceAddress = testbed.getRpcClient().request("testbed_resolveVerifier",
-                    alice, Algorithms.ECDSA_SECP256K1, Verifiers.ETH_ADDRESS);
+            String csdRequesterAddress = testbed.getRpcClient().request("testbed_resolveVerifier",
+                    csdRequester, Algorithms.ECDSA_SECP256K1, Verifiers.ETH_ADDRESS);
+            String agentAddress = testbed.getRpcClient().request("testbed_resolveVerifier",
+                    agent, Algorithms.ECDSA_SECP256K1, Verifiers.ETH_ADDRESS);
+            String dealerAddress = testbed.getRpcClient().request("testbed_resolveVerifier",
+                    dealer, Algorithms.ECDSA_SECP256K1, Verifiers.ETH_ADDRESS);
 
             var mapper = new ObjectMapper();
             List<JsonNode> notoSchemas = testbed.getRpcClient().request("pstate_listSchemas",
@@ -132,6 +136,9 @@ public class CSDBondTest {
             }
             assertNotNull(notoSchema);
 
+            // Create the atom factory on the base ledger
+            var atomFactory = AtomFactoryHelper.deploy(testbed, csdRequester, null);
+
             // Create Noto cash token
             var notoCash = NotoHelper.deploy("noto", cashIssuer, testbed,
                     new NotoHelper.ConstructorParams(
@@ -141,60 +148,131 @@ public class CSDBondTest {
             assertFalse(notoCash.address().isBlank());
 
             // Issue cash to investors
-            notoCash.mint(cashIssuer, alice, 100000);
+            notoCash.mint(cashIssuer, dealer, 100000);
 
-            GroupTupleJSON issuerGroup = new GroupTupleJSON(
-                    JsonHex.randomBytes32(), new String[]{bondIssuer});
+            GroupTupleJSON csdGroup = new GroupTupleJSON(
+                    JsonHex.randomBytes32(), new String[]{csdRequester});
 
             // Create the privacy groups
-            var issuerInstance = PenteHelper.newPrivacyGroup(
-                    "pente", bondIssuer, testbed, issuerGroup, true);
-            assertFalse(issuerInstance.address().isBlank());
+            var csdInstance = PenteHelper.newPrivacyGroup(
+                    "pente", csdRequester, testbed, csdGroup, true);
+            assertFalse(csdInstance.address().isBlank());
 
-            // Deploy private investor list to the issuer privacy group
-            var investorList = InvestorListHelper.deploy(issuerInstance, bondIssuer, new HashMap<>() {{
-                put("initialOwner", issuerAddress);
-            }});
+            // Deploy private investor list to the CSD privacy group
+            var investorList = InvestorListHelper.deploy(csdInstance, csdRequester, new HashMap<>(Map.of(
+                    "initialOwner", csdRequesterAddress
+            )));
 
-            // Deploy private bond tracker to the issuer privacy group
-            var bondTracker = CSDBondTrackerHelper.deploy(issuerInstance, bondIssuer, new HashMap<>() {{
-                put("name", "BOND");
-                put("symbol", "BOND");
-                put("transferPolicy_", investorList.address());
-            }});
+            // Deploy private bond tracker to the CSD privacy group
+            var bondTracker = CSDBondTrackerHelper.deploy(csdInstance, csdRequester, new HashMap<>(Map.of(
+                    "name", "BOND",
+                    "symbol", "BOND",
+                    "transferPolicy_", investorList.address()
+            )));
+
+            // Deploy private bond orders contract to the issuer privacy group
+            var bondOrders = CSDBondOrdersHelper.deploy(csdInstance, csdRequester, new HashMap<>(Map.of(
+                    "bondTracker_", bondTracker.address()
+            )));
+            TestbedHelper.storeABI(testbed, bondOrders.abi());
 
             // Perform bond pre-issuance workflow
-            bondTracker.approveRequest(bondChecker);
-            bondTracker.setISIN(bondIssuer, "ZZ0123456AB0");
-            bondTracker.approveISIN(bondChecker);
+            final String isin = "ZZ0123456AB0";
+            bondTracker.approveRequest(csdChecker);
+            bondTracker.setISIN(csdRequester, isin);
+            bondTracker.approveISIN(csdChecker);
 
             // Create Noto bond token
-            var notoBond = NotoHelper.deploy("noto", bondIssuer, testbed,
+            var notoBond = NotoHelper.deploy("noto", csdRequester, testbed,
                     new NotoHelper.ConstructorParams(
-                            bondIssuer + "@node1",
+                            csdRequester + "@node1",
                             new NotoHelper.HookParams(
-                                    issuerInstance.address(),
+                                    csdInstance.address(),
                                     bondTracker.address(),
-                                    issuerGroup),
+                                    csdGroup),
                             false));
             assertFalse(notoBond.address().isBlank());
 
-            // Issue bond to issuer
-            bondTracker.prepareIssuance(bondIssuer);
-            notoBond.mint(bondChecker, bondIssuer, 1000);
+            // Issue bond to agent
+            bondTracker.prepareIssuance(csdRequester);
+            notoBond.mint(csdChecker, agent, 1000);
 
             // Validate Noto balances
             var notoCashStates = notoCash.queryStates(notoSchema.id, null);
             assertEquals(1, notoCashStates.size());
             assertEquals("100000", notoCashStates.getFirst().data().amount());
-            assertEquals(aliceAddress, notoCashStates.getFirst().data().owner());
+            assertEquals(dealerAddress, notoCashStates.getFirst().data().owner());
             var notoBondStates = notoBond.queryStates(notoSchema.id, null);
             assertEquals(1, notoBondStates.size());
             assertEquals("1000", notoBondStates.getFirst().data().amount());
-            assertEquals(issuerAddress, notoBondStates.getFirst().data().owner());
+            assertEquals(agentAddress, notoBondStates.getFirst().data().owner());
 
             // Validate bond tracker balance
-            assertEquals("1000", bondTracker.balanceOf(bondIssuer, issuerAddress));
+            assertEquals("1000", bondTracker.balanceOf(csdRequester, agentAddress));
+
+            // Add dealer to investor list
+            investorList.addInvestor(csdRequester, dealerAddress);
+
+            // Enter DvP and RvP requests (as if received by issuer)
+            bondOrders.deliverOrder(csdRequester, isin, new CSDBondOrdersHelper.BondDetails(agent, dealer));
+            var result = bondOrders.receiveOrder(csdRequester, isin, new CSDBondOrdersHelper.BondDetails(agent, dealer));
+            var receipt = TestbedHelper.getTransactionReceipt(testbed, result.id());
+            var penteReceipt = mapper.convertValue(receipt.domainReceipt(), TestbedHelper.PenteDomainReceipt.class);
+            assertEquals(1, penteReceipt.receipt().logs().size());
+            var penteEvent = penteReceipt.receipt().logs().getFirst();
+            var decodedEvent = TestbedHelper.decodeEvent(testbed, penteEvent.topics(), penteEvent.data());
+            assertEquals("OrderMatched(string)", decodedEvent.signature());
+
+            // Prepare the distribution
+            bondOrders.prepareDistribution(csdRequester, isin);
+            bondOrders.approveDistribution(csdChecker, isin);
+
+            // Prepare the bond transfer (requires 2 calls to prepare, as the Noto transaction spawns a Pente transaction to wrap it)
+            var bondTransfer = notoBond.prepareTransfer(agent, dealer, 1000);
+            assertEquals("private", bondTransfer.preparedTransaction().type());
+            assertEquals("pente", bondTransfer.preparedTransaction().domain());
+            assertEquals(csdInstance.address(), bondTransfer.preparedTransaction().to().toString());
+            assertEquals(1, bondTransfer.preparedTransaction().abi().size());
+            var bondTransfer2 = csdInstance.prepare(
+                    bondTransfer.preparedTransaction().from(),
+                    bondTransfer.preparedTransaction().abi().getFirst(),
+                    bondTransfer.preparedTransaction().data()
+            );
+            assertEquals("public", bondTransfer2.preparedTransaction().type());
+            var bondTransferMetadata = mapper.convertValue(bondTransfer2.preparedMetadata(), PenteHelper.PenteTransitionMetadata.class);
+
+            // Prepare the payment transfer
+            var paymentTransfer = notoCash.prepareTransfer(dealer, agent, 1000);
+            assertEquals("public", paymentTransfer.preparedTransaction().type());
+            var paymentMetadata = mapper.convertValue(paymentTransfer.preparedMetadata(), NotoHelper.NotoTransferMetadata.class);
+
+            // Prepare the atomic operation
+            var atom = atomFactory.create(csdRequester, List.of(
+                    new AtomHelper.Operation(bondTransfer2.preparedTransaction().to(), bondTransferMetadata.transitionWithApproval().encodedCall()),
+                    new AtomHelper.Operation(paymentTransfer.preparedTransaction().to(), paymentMetadata.transferWithApproval().encodedCall())
+            ));
+            assertNotNull(atom);
+
+            // Dealer approves payment transfer
+            notoCash.approveTransfer(
+                    dealer,
+                    paymentTransfer.inputStates(),
+                    paymentTransfer.outputStates(),
+                    paymentMetadata.approvalParams().data(),
+                    atom.address().toString());
+
+            // Agent approves bond transfer
+            var txID = csdInstance.approveTransition(
+                    csdRequester,
+                    JsonHex.randomBytes32(),
+                    atom.address(),
+                    bondTransferMetadata.approvalParams().transitionHash(),
+                    bondTransferMetadata.approvalParams().signatures());
+            receipt = TestbedHelper.pollForReceipt(testbed, txID, 3000);
+            assertNotNull(receipt);
+
+            // Execute the atomic operation
+            atom.execute(csdRequester);
         }
     }
 }

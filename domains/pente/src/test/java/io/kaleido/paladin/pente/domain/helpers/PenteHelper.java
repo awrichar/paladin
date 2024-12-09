@@ -127,8 +127,8 @@ public class PenteHelper {
         return domainData.contractAddress();
     }
 
-    public Testbed.TransactionResult invoke(String methodName, JsonABI.Parameters inputParams, String sender, JsonHex.Address privateAddress, Object inputValues) throws IOException {
-        JsonABI.Entry invokeABI = JsonABI.newFunction(
+    public JsonABI.Entry makeInvokeABI(String methodName, JsonABI.Parameters inputParams) {
+        return JsonABI.newFunction(
                 methodName,
                 JsonABI.newParameters(
                         JsonABI.newTuple("group", "Group", JsonABI.newParameters(
@@ -140,7 +140,9 @@ public class PenteHelper {
                 ),
                 JsonABI.newParameters()
         );
+    }
 
+    public Testbed.TransactionResult invoke(String methodName, JsonABI.Parameters inputParams, String sender, JsonHex.Address privateAddress, Object inputValues) throws IOException {
         return TestbedHelper.getTransactionResult(
                 testbed.getRpcClient().request("testbed_invoke",
                         new Testbed.TransactionInput(
@@ -148,12 +150,14 @@ public class PenteHelper {
                                 "",
                                 sender,
                                 JsonHex.addressFrom(address),
-                                new HashMap<>() {{
-                                    put("group", groupInfo);
-                                    put("to", privateAddress);
-                                    put("inputs", inputValues);
-                                }},
-                                new JsonABI(List.of(invokeABI)),
+                                Map.of(
+                                        "group", groupInfo,
+                                        "to", privateAddress,
+                                        "inputs", inputValues
+                                ),
+                                new JsonABI(List.of(
+                                        makeInvokeABI(methodName, inputParams)
+                                )),
                                 ""
                         ), true));
     }
