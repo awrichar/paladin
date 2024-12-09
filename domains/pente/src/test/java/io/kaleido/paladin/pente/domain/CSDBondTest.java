@@ -28,8 +28,7 @@ import org.junit.jupiter.api.Test;
 import java.util.HashMap;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class CSDBondTest {
 
@@ -131,6 +130,7 @@ public class CSDBondTest {
                     assertEquals("type=TransactionData(bytes32 salt,bytes data),labels=[]", schema.signature());
                 }
             }
+            assertNotNull(notoSchema);
 
             // Create Noto cash token
             var notoCash = NotoHelper.deploy("noto", cashIssuer, testbed,
