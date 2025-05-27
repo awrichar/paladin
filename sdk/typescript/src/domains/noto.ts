@@ -1,10 +1,11 @@
 import { ethers } from "ethers";
-import { IStateEncoded, TransactionType } from "../interfaces";
+import { TransactionType } from "../interfaces";
 import PaladinClient from "../paladin";
-import { TransactionFuture } from "../transaction";
 import { PaladinVerifier } from "../verifier";
 import * as notoJSON from "./abis/INoto.json";
 import * as notoPrivateJSON from "./abis/INotoPrivate.json";
+import { TransactionFuture } from "../transaction";
+
 
 export const notoConstructorABI = (
   withHooks: boolean
@@ -91,13 +92,6 @@ export interface NotoBurnParams {
   data: string;
 }
 
-export interface NotoApproveTransferParams {
-  inputs: IStateEncoded[];
-  outputs: IStateEncoded[];
-  data: string;
-  delegate: string;
-}
-
 export interface NotoLockParams {
   amount: string | number;
   data: string;
@@ -117,16 +111,17 @@ export interface UnlockRecipient {
 
 export interface NotoDelegateLockParams {
   lockId: string;
-  unlock: NotoUnlockPublicParams;
+  unlock: NotoTransferLockedPublicParams;
   delegate: string;
   data: string;
 }
 
-export interface NotoUnlockPublicParams {
+export interface NotoTransferLockedPublicParams {
+  lockId: string;
   lockedInputs: string[];
   lockedOutputs: string[];
   outputs: string[];
-  signature: string;
+  proof: string;
   data: string;
 }
 
@@ -228,49 +223,15 @@ export class NotoInstance {
     );
   }
 
-  prepareTransfer(from: PaladinVerifier, data: NotoTransferParams) {
-    return this.paladin.prepareTransaction({
+   burn(from: PaladinVerifier, data: NotoBurnParams) {
+    return new TransactionFuture(this.paladin, this.paladin.sendTransaction({
       type: TransactionType.PRIVATE,
       abi: notoPrivateJSON.abi,
-      function: "transfer",
+      function: "burn",
       to: this.address,
       from: from.lookup,
-      data: {
-        ...data,
-        to: data.to.lookup,
-      },
-    });
-  }
-
-  approveTransfer(
-    from: PaladinVerifier,
-    data: NotoApproveTransferParams
-  ) {
-    return new TransactionFuture(
-      this.paladin,
-      this.paladin.sendTransaction({
-        type: TransactionType.PRIVATE,
-        abi: notoPrivateJSON.abi,
-        function: "approveTransfer",
-        to: this.address,
-        from: from.lookup,
-        data,
-      })
-    );
-  }
-
-  burn(from: PaladinVerifier, data: NotoBurnParams) {
-    return new TransactionFuture(
-      this.paladin,
-      this.paladin.sendTransaction({
-        type: TransactionType.PRIVATE,
-        abi: notoPrivateJSON.abi,
-        function: "burn",
-        to: this.address,
-        from: from.lookup,
-        data,
-      })
-    );
+      data,
+    }))
   }
 
   lock(from: PaladinVerifier, data: NotoLockParams) {
@@ -308,7 +269,7 @@ export class NotoInstance {
     );
   }
 
-  unlockAsDelegate(from: PaladinVerifier, data: NotoUnlockPublicParams) {
+  unlockAsDelegate(from: PaladinVerifier, data: NotoTransferLockedPublicParams) {
     return new TransactionFuture(
       this.paladin,
       this.paladin.sendTransaction({
@@ -357,14 +318,18 @@ export class NotoInstance {
     );
   }
 
-  encodeUnlock(data: NotoUnlockPublicParams) {
-    return new ethers.Interface(notoJSON.abi).encodeFunctionData("unlock", [
-      data.lockedInputs,
-      data.lockedOutputs,
-      data.outputs,
-      data.signature,
-      data.data,
-    ]);
+  encodeUnlock(data: NotoTransferLockedPublicParams) {
+    return new ethers.Interface(notoJSON.abi).encodeFunctionData(
+      "transferLocked",
+      [
+        data.lockId,
+        data.lockedInputs,
+        data.lockedOutputs,
+        data.outputs,
+        data.proof,
+        data.data,
+      ]
+    );
   }
 
   balanceOf(

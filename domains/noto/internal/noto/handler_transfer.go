@@ -181,22 +181,18 @@ func (h *transferHandler) baseLedgerInvoke(ctx context.Context, req *prototk.Pre
 		return nil, err
 	}
 	params := &NotoTransferParams{
-		TxId:      req.Transaction.TransactionId,
-		Inputs:    endorsableStateIDs(req.InputStates),
-		Outputs:   endorsableStateIDs(req.OutputStates),
-		Signature: signature.Payload,
-		Data:      data,
+		TxId:    req.Transaction.TransactionId,
+		Inputs:  endorsableStateIDs(req.InputStates),
+		Outputs: endorsableStateIDs(req.OutputStates),
+		Proof:   signature.Payload,
+		Data:    data,
 	}
 	paramsJSON, err := json.Marshal(params)
 	if err != nil {
 		return nil, err
 	}
-	fn := "transfer"
-	if withApproval {
-		fn = "transferWithApproval"
-	}
 	return &TransactionWrapper{
-		functionABI: interfaceBuild.ABI.Functions()[fn],
+		functionABI: interfaceBuild.ABI.Functions()["transfer"],
 		paramsJSON:  paramsJSON,
 	}, nil
 }
@@ -246,76 +242,24 @@ func (h *transferHandler) hookInvoke(ctx context.Context, tx *types.ParsedTransa
 	}, nil
 }
 
-func (h *transferHandler) makeDomainData(ctx context.Context, withApprovalTX *TransactionWrapper, req *prototk.PrepareTransactionRequest) ([]byte, error) {
-	data, err := h.noto.encodeTransactionData(ctx, req.Transaction, req.InfoStates)
-	if err != nil {
-		return nil, err
-	}
-	encodedCall, err := withApprovalTX.functionABI.EncodeCallDataJSONCtx(ctx, withApprovalTX.paramsJSON)
-	if err != nil {
-		return nil, err
-	}
-	domainData := &types.NotoTransferMetadata{
-		ApprovalParams: types.ApproveExtraParams{
-			Data: data,
-		},
-		TransferWithApproval: types.NotoPublicTransaction{
-			FunctionABI: withApprovalTX.functionABI,
-			ParamsJSON:  withApprovalTX.paramsJSON,
-			EncodedCall: encodedCall,
-		},
-	}
-	return json.Marshal(domainData)
-}
-
 func (h *transferHandler) Prepare(ctx context.Context, tx *types.ParsedTransaction, req *prototk.PrepareTransactionRequest) (*prototk.PrepareTransactionResponse, error) {
 	endorsement := domain.FindAttestation("notary", req.AttestationResult)
 	if endorsement == nil || endorsement.Verifier.Lookup != tx.DomainConfig.NotaryLookup {
 		return nil, i18n.NewError(ctx, msgs.MsgAttestationNotFound, "notary")
 	}
 
-	var withApprovalTransaction *TransactionWrapper
-	var hookTransaction *TransactionWrapper
-	var withApprovalHookTransaction *TransactionWrapper
-	var metadata []byte
-
-	// If preparing a transaction for later use, return metadata allowing it to be delegated to an approved party
-	prepareApprovals := req.Transaction.Intent == prototk.TransactionSpecification_PREPARE_TRANSACTION
-
 	baseTransaction, err := h.baseLedgerInvoke(ctx, req, false)
 	if err != nil {
 		return nil, err
 	}
-	if prepareApprovals {
-		withApprovalTransaction, err = h.baseLedgerInvoke(ctx, req, true)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	if tx.DomainConfig.NotaryMode == types.NotaryModeHooks.Enum() {
-		hookTransaction, err = h.hookInvoke(ctx, tx, req, baseTransaction)
+		hookTransaction, err := h.hookInvoke(ctx, tx, req, baseTransaction)
 		if err != nil {
 			return nil, err
 		}
-		if prepareApprovals {
-			withApprovalHookTransaction, err = h.hookInvoke(ctx, tx, req, withApprovalTransaction)
-			if err != nil {
-				return nil, err
-			}
-			metadata, err = h.makeDomainData(ctx, withApprovalHookTransaction, req)
-			if err != nil {
-				return nil, err
-			}
-		}
-		return hookTransaction.prepare(metadata)
+		return hookTransaction.prepare()
 	}
 
-	if prepareApprovals {
-		metadata, err = h.makeDomainData(ctx, withApprovalTransaction, req)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return baseTransaction.prepare(metadata)
+	return baseTransaction.prepare()
 }

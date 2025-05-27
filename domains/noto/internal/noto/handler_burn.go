@@ -188,11 +188,11 @@ func (h *burnHandler) baseLedgerInvoke(ctx context.Context, req *prototk.Prepare
 		return nil, err
 	}
 	params := &NotoBurnParams{
-		TxId:      req.Transaction.TransactionId,
-		Inputs:    endorsableStateIDs(req.InputStates),
-		Outputs:   endorsableStateIDs(req.OutputStates),
-		Signature: sender.Payload,
-		Data:      data,
+		TxId:    req.Transaction.TransactionId,
+		Inputs:  endorsableStateIDs(req.InputStates),
+		Outputs: endorsableStateIDs(req.OutputStates),
+		Proof:   sender.Payload,
+		Data:    data,
 	}
 	paramsJSON, err := json.Marshal(params)
 	if err != nil {
@@ -260,7 +260,7 @@ func (h *burnHandler) Prepare(ctx context.Context, tx *types.ParsedTransaction, 
 		if err != nil {
 			return nil, err
 		}
-		return hookTransaction.prepare(nil)
+		return hookTransaction.prepare()
 	}
-	return baseTransaction.prepare(nil)
+	return baseTransaction.prepare()
 }
