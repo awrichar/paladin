@@ -3758,16 +3758,15 @@ to run the code.</p>
 <h2 id="scenario-overview">Scenario Overview<a class="headerlink" href="#scenario-overview" title="Permanent link">&para;</a></h2>
 <p>The example simulates a regulated enterprise stablecoin ecosystem with the following participants:</p>
 <ul>
-<li><strong>Regulatory Authority</strong> (<code>regulator@node1</code>) – Manages KYC compliance and oversight</li>
-<li><strong>Financial Institution</strong> (<code>bank@node2</code>) – Issues and manages stablecoin operations</li>
+<li><strong>Financial Institution</strong> (<code>bank@node2</code>) – Issues stablecoins and manages KYC compliance for its clients</li>
 <li><strong>Enterprise Client A</strong> (<code>enterprise-a@node3</code>) – Receives and transfers stablecoins</li>
 <li><strong>Enterprise Client B</strong> (<code>enterprise-b@node3</code>) – Participates in enterprise transactions</li>
 </ul>
 <h2 id="step-by-step-walkthrough">Step-by-Step Walkthrough<a class="headerlink" href="#step-by-step-walkthrough" title="Permanent link">&para;</a></h2>
 <h3 id="1-deploy-enterprise-stablecoin-contract">1. Deploy Enterprise Stablecoin Contract<a class="headerlink" href="#1-deploy-enterprise-stablecoin-contract" title="Permanent link">&para;</a></h3>
 <p>The example begins by deploying a Zeto contract with KYC and nullifier capabilities:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">zetoFactory</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">ZetoFactory</span><span class="p">(</span><span class="nx">paladin1</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;zeto&quot;</span><span class="p">);</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kd">const</span><span class="w"> </span><span class="nx">enterpriseStablecoin</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">zetoFactory</span><span class="p">.</span><span class="nx">newZeto</span><span class="p">(</span><span class="nx">regulatoryAuthority</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">zetoFactory</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">ZetoFactory</span><span class="p">(</span><span class="nx">paladin2</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;zeto&quot;</span><span class="p">);</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kd">const</span><span class="w"> </span><span class="nx">enterpriseStablecoin</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">zetoFactory</span><span class="p">.</span><span class="nx">newZeto</span><span class="p">(</span><span class="nx">financialInstitution</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nx">tokenName</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;Zeto_AnonNullifierKyc&quot;</span><span class="p">,</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">});</span>
 </code></pre></div>
@@ -3776,28 +3775,43 @@ to run the code.</p>
 - <strong>Nullifier protection</strong> against double-spending
 - <strong>KYC compliance</strong> verification for all participants</p>
 <h3 id="2-kyc-registration-process">2. KYC Registration Process<a class="headerlink" href="#2-kyc-registration-process" title="Permanent link">&para;</a></h3>
-<p>Before any stablecoin operations, the regulatory authority registers all participants for KYC compliance:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1">// Register Enterprise Client A</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kd">const</span><span class="w"> </span><span class="nx">clientAPublicKey</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">getBabyjubPublicKey</span><span class="p">(</span><span class="nx">enterpriseClientA</span><span class="p">);</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kd">let</span><span class="w"> </span><span class="nx">kycTxId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">paladin1</span><span class="p">.</span><span class="nx">sendTransaction</span><span class="p">({</span>
+<p>Before any stablecoin operations, the financial institution registers itself and its clients for KYC compliance:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1">// Financial institution registers itself first</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kd">const</span><span class="w"> </span><span class="nx">bankPublicKey</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">getBabyjubPublicKey</span><span class="p">(</span><span class="nx">financialInstitution</span><span class="p">);</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kd">let</span><span class="w"> </span><span class="nx">kycTxId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">paladin2</span><span class="p">.</span><span class="nx">sendTransaction</span><span class="p">({</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="nx">TransactionType</span><span class="p">.</span><span class="nx">PUBLIC</span><span class="p">,</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nx">from</span><span class="o">:</span><span class="w"> </span><span class="kt">regulatoryAuthority.lookup</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nx">from</span><span class="o">:</span><span class="w"> </span><span class="kt">financialInstitution.lookup</span><span class="p">,</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nx">to</span><span class="o">:</span><span class="w"> </span><span class="kt">enterpriseStablecoin.address</span><span class="p">,</span>
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nx">data</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nx">publicKey</span><span class="o">:</span><span class="w"> </span><span class="kt">clientAPublicKey</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nx">publicKey</span><span class="o">:</span><span class="w"> </span><span class="kt">bankPublicKey</span><span class="p">,</span>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="nx">data</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;0x&quot;</span><span class="p">,</span><span class="w"> </span><span class="c1">// KYC compliance data/proof could go here</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span><span class="p">},</span>
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="kd">function</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;register&quot;</span><span class="p">,</span>
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span><span class="nx">abi</span><span class="o">:</span><span class="w"> </span><span class="kt">kycAbi.abi</span><span class="p">,</span>
 <a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="p">});</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="c1">// Then register Enterprise Client A</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="kd">const</span><span class="w"> </span><span class="nx">clientAPublicKey</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">getBabyjubPublicKey</span><span class="p">(</span><span class="nx">enterpriseClientA</span><span class="p">);</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="nx">kycTxId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">paladin2</span><span class="p">.</span><span class="nx">sendTransaction</span><span class="p">({</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">  </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="nx">TransactionType</span><span class="p">.</span><span class="nx">PUBLIC</span><span class="p">,</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">  </span><span class="nx">from</span><span class="o">:</span><span class="w"> </span><span class="kt">financialInstitution.lookup</span><span class="p">,</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">  </span><span class="nx">to</span><span class="o">:</span><span class="w"> </span><span class="kt">enterpriseStablecoin.address</span><span class="p">,</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">  </span><span class="nx">data</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">    </span><span class="nx">publicKey</span><span class="o">:</span><span class="w"> </span><span class="kt">clientAPublicKey</span><span class="p">,</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">    </span><span class="nx">data</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;0x&quot;</span><span class="p">,</span><span class="w"> </span><span class="c1">// KYC compliance data/proof could go here</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="w">  </span><span class="kd">function</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;register&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">  </span><span class="nx">abi</span><span class="o">:</span><span class="w"> </span><span class="kt">kycAbi.abi</span><span class="p">,</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="p">});</span>
 </code></pre></div>
 <p><strong>Key Technical Details:</strong>
+- <strong>Financial institution manages KYC</strong> for all participants
 - Uses <strong>BabyJubJub elliptic curve</strong> keys for zero-knowledge proof compatibility
 - Properly decompresses compressed public keys using <strong>circomlibjs</strong>
 - Stores KYC registration on-chain for verification during transfers</p>
 <h3 id="3-stablecoin-issuance">3. Stablecoin Issuance<a class="headerlink" href="#3-stablecoin-issuance" title="Permanent link">&para;</a></h3>
-<p>The financial institution mints enterprise stablecoins under regulatory oversight:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kd">let</span><span class="w"> </span><span class="nx">receipt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">enterpriseStablecoin</span><span class="p">.</span><span class="nx">mint</span><span class="p">(</span><span class="nx">regulatoryAuthority</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<p>The financial institution mints enterprise stablecoins to itself:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kd">let</span><span class="w"> </span><span class="nx">receipt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">enterpriseStablecoin</span><span class="p">.</span><span class="nx">mint</span><span class="p">(</span><span class="nx">financialInstitution</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nx">mints</span><span class="o">:</span><span class="w"> </span><span class="p">[</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="p">{</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nx">to</span><span class="o">:</span><span class="w"> </span><span class="kt">financialInstitution</span><span class="p">,</span>
@@ -3809,8 +3823,8 @@ to run the code.</p>
 </code></pre></div>
 <p><strong>Privacy Features:</strong>
 - Mint amounts are <strong>cryptographically private</strong>
-- Only the issuer and recipient know the exact amount
-- Regulatory authority maintains oversight without full visibility</p>
+- Only the financial institution knows the exact amount minted
+- Provides privacy while maintaining internal compliance controls</p>
 <h3 id="4-enterprise-transfers">4. Enterprise Transfers<a class="headerlink" href="#4-enterprise-transfers" title="Permanent link">&para;</a></h3>
 <p>The financial institution transfers stablecoins to enterprise clients:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nx">receipt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">enterpriseStablecoin</span>
@@ -3857,7 +3871,7 @@ to run the code.</p>
 <h3 id="kyc-integration">KYC Integration<a class="headerlink" href="#kyc-integration" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Cryptographic verification</strong> of participant eligibility</li>
-<li><strong>Regulatory oversight</strong> without compromising privacy</li>
+<li><strong>Financial institution oversight</strong> without compromising privacy</li>
 <li><strong>Automated compliance</strong> checking during transfers</li>
 </ul>
 <h3 id="nullifier-protection">Nullifier Protection<a class="headerlink" href="#nullifier-protection" title="Permanent link">&para;</a></h3>
@@ -3900,12 +3914,12 @@ to run the code.</p>
 <h2 id="conclusion">Conclusion<a class="headerlink" href="#conclusion" title="Permanent link">&para;</a></h2>
 <p>The Enterprise Stablecoin example demonstrates how Paladin enables:</p>
 <ul>
-<li><strong>Regulatory compliance</strong> through automated KYC verification</li>
+<li><strong>Financial institution-managed compliance</strong> through automated KYC verification</li>
 <li><strong>Transaction privacy</strong> using zero-knowledge proofs</li>
 <li><strong>Enterprise scalability</strong> with direct peer-to-peer transfers</li>
 <li><strong>Financial security</strong> through nullifier-based double-spend protection</li>
 </ul>
-<p>This showcases Paladin's capability to balance <strong>regulatory requirements</strong> with <strong>privacy preservation</strong> in enterprise financial applications.</p>
+<p>This showcases Paladin's capability to balance <strong>compliance requirements</strong> with <strong>privacy preservation</strong> in enterprise financial applications, where financial institutions can manage their own customer onboarding and compliance processes.</p>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <p>Explore how <strong>Notarized Tokens</strong> and <strong>Privacy Groups</strong> work together to create comprehensive financial solutions with controlled oversight and selective disclosure.</p>
 <p><a href="../bond-issuance/">Continue to the Bond Issuance Tutorial →</a> </p>
