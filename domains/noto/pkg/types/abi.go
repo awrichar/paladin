@@ -109,3 +109,13 @@ type TransferLockedPublicParams struct {
 	Proof         pldtypes.HexBytes `json:"proof"`
 	Data          pldtypes.HexBytes `json:"data"`
 }
+
+type BalanceOfParam struct {
+	Account string `json:"account"`
+}
+
+type BalanceOfResult struct {
+	TotalBalance *pldtypes.HexUint256 `json:"totalBalance"`
+	TotalStates  *pldtypes.HexUint256 `json:"totalStates"`
+	Overflow     bool                 `json:"overflow"`
+}

@@ -1,7 +1,7 @@
 import { copyFile } from "copy-file";
 
 await copyFile(
-  "../../solidity/artifacts/contracts/shared/Atom.sol/AtomFactory.json",
+  "../../solidity/artifacts/contracts/shared/AtomFactory.sol/AtomFactory.json",
   "src/abis/AtomFactory.json"
 );
 

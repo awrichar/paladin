@@ -23,27 +23,31 @@ async function main(): Promise<boolean> {
   // Create a Zeto token to represent CBDC
   logger.log("Deploying Zeto CBDC token...");
   const zetoFactory = new ZetoFactory(paladin3, "zeto");
-  const zetoCBDC = await zetoFactory.newZeto(cbdcIssuer, {
-    tokenName: "Zeto_AnonNullifier",
-  });
+  const zetoCBDC = await zetoFactory
+    .newZeto(cbdcIssuer, {
+      tokenName: "Zeto_AnonNullifier",
+    })
+    .waitForDeploy();
   if (!checkDeploy(zetoCBDC)) return false;
 
   // Issue some CBDC to bank1 and bank2
   logger.log("Issuing CBDC to bank1 and bank2...");
-  let receipt = await zetoCBDC.mint(cbdcIssuer, {
-    mints: [
-      {
-        to: bank1,
-        amount: 100000,
-        data: "0x",
-      },
-      {
-        to: bank2,
-        amount: 100000,
-        data: "0x",
-      },
-    ],
-  });
+  let receipt = await zetoCBDC
+    .mint(cbdcIssuer, {
+      mints: [
+        {
+          to: bank1,
+          amount: 100000,
+          data: "0x",
+        },
+        {
+          to: bank2,
+          amount: 100000,
+          data: "0x",
+        },
+      ],
+    })
+    .waitForReceipt();
   if (!checkReceipt(receipt)) return false;
 
   return true;

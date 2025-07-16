@@ -57,12 +57,14 @@ export const newInterbankTransfer = async (
   if (constructorAbi === undefined) {
     throw new Error("Bond subscription constructor not found");
   }
-  const address = await pente.deploy({
-    abi: interbankTransfer.abi,
-    bytecode: interbankTransfer.bytecode,
-    from: from.lookup,
-    inputs: params,
-  });
+  const address = await pente
+    .deploy({
+      abi: interbankTransfer.abi,
+      bytecode: interbankTransfer.bytecode,
+      from: from.lookup,
+      inputs: params,
+    })
+    .waitForDeploy();
   return address ? new InterbankTransfer(pente, address) : undefined;
 };
 
